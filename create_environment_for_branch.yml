@@ -1,0 +1,45 @@
+variables:
+  # Заявка
+  TASK_ID: ''
+
+stages:
+  - deploy
+
+before_script:
+  # Определяем задачу по ветке
+  - TASK_ID=$(sed 's/^.*\///g'  <<< $CI_COMMIT_REF_NAME)
+
+# Выкладка ветки для теста
+deploy to develop:
+  stage: deploy
+  only:
+    - /^feature\/.*$/
+  except:
+    - feature/master
+    - develop
+    - dev
+    - master
+  environment:
+    name: develop/$TASK_ID
+    url: http://${DEPLOY_DEV_SERVER}:{$DEPLOY_DEV_PROJECT_URL}${TASK_ID}/index.php
+    on_stop: remove in develop
+  script:
+    # build script
+    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER}:${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+  when: manual
+
+# Удаление ветки для теста
+remove in develop:
+  stage: deploy
+  only:
+    - /^feature\/.*$/
+  except:
+    - feature/master
+    - develop
+    - dev
+  environment:
+    name: develop/$TASK_ID
+    action: stop
+  script:
+    - ssh ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER} rm -rf ${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+  when: manual

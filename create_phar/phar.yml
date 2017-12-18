@@ -1,0 +1,12 @@
+generate_phar:
+  stage: build
+  only:
+   - master
+  when: manual
+  script:
+   - echo "phar.readonly = Off" > /etc/php/7.0/mods-available/phar.ini
+   - php -d extension=phar.so create_phar.php
+  artifacts:
+    paths:
+    - project.phar
+    expire_in: 1 day

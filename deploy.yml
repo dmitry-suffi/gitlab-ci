@@ -1,0 +1,24 @@
+stages:
+  - deploy
+
+before_script:
+  # Настройка ключей д
+  - eval $(ssh-agent -s)
+  - ssh-add <(cat ~/.ssh/id_rsa.deploy)
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+
+# Выкладка на боевой
+deploy to production:
+  stage: deploy
+  only:
+    - master
+  environment:
+    name: production
+  script:
+    # Права
+    - chmod -R 0775 tmp
+    # Версия сборки
+    - sed -i -- "s/{BUILD_VERSION}/$CI_JOB_ID/g" config/config.php
+    # Выкладка
+    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_PROD_USER}@${DEPLOY_PROD_SERVER}:${DEPLOY_PROD_PROJECT_PATH}master
+  when: manual

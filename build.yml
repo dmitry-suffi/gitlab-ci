@@ -1,0 +1,15 @@
+cache:
+  key: vendor
+  paths:
+    - vendor
+
+stages:
+  - build
+
+# Сборка проекта
+build:
+  stage: build
+  script:
+    # Composer
+    - '[[ -f composer.json ]] && composer install --prefer-dist --no-progress'
+

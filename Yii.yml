@@ -1,0 +1,32 @@
+# Сборка проекта
+build:
+  stage: build
+  script:
+    # Composer
+    - composer global require "fxp/composer-asset-plugin:^1.2.0"
+    - composer config --global github-oauth.github.com $GITHUB_TOKEN
+    - '[[ -f composer.json ]] && composer install --prefer-dist --no-progress'
+
+# Выкладка на боевой
+deploy to production:
+  stage: deploy
+  only:
+    - master
+  environment:
+    name: production
+  script:
+    # Права
+    - chmod -R 0777 runtime web/assets
+    # Конфиги
+    - cp web/index.php.inst web/index.php
+    - sed -i -- "s/%%YII_DEBUG%%/false/g" web/index.php
+    - sed -i -- "s/%%YII_ENV%%/prod/g" web/index.php
+    - sed -i -- "s/{USER}/$DB_USER_DEV/g" core/config/db.php
+    - sed -i -- "s/{PASSWORD}/$DB_PASS_DEV/g" core/config/db.php
+    # Минификация ассетов
+    - php yii asset core/assets/core.php core/assets/core-prod.php
+    # Миграции
+    - php yii migrate/up --interactive=0
+    # Выкладка
+    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_PROD_USER}@${DEPLOY_PROD_SERVER}:${DEPLOY_PROD_PROJECT_PATH}
+  when: manual

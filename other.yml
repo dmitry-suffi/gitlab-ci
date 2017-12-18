@@ -1,0 +1,2 @@
+   # Информация о проекте через api
+   - 'curl -s --header "PRIVATE-TOKEN: ${CI_JOB_TOKEN}" "http://gitlab.nextcontact.ru/api/v4/project/${CI_PROJECT_ID}" > info.json'

@@ -1,0 +1,12 @@
+# Запуск тестов
+test:
+  stage: test
+  script:
+    # Download stable release of xdebug 2.4.0
+    - apt-get update
+    - apt-get install -y php7.0-xdebug
+    - '[[ -f composer.json ]] && composer install --prefer-dist --no-progress'
+    - ${CI_PROJECT_DIR}/vendor/bin/phpunit -c ${CI_PROJECT_DIR}/tests/phpunit-cov.xml
+  artifacts:
+    paths:
+      - report/

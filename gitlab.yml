@@ -1,0 +1,99 @@
+image: php70:latest
+
+variables:
+  # Заявка
+  TASK_ID: ''
+
+cache:
+  key: vendor
+  paths:
+    - vendor
+
+stages:
+  - build
+  - test
+  - deploy
+
+before_script:
+  # Настройка ключей деплоя одинаково для всех проектов
+  - eval $(ssh-agent -s)
+  - ssh-add <(cat ~/.ssh/id_rsa.deploy)
+  - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+  # Определяем задачу по ветке
+  - TASK_ID=$(sed 's/^.*\///g'  <<< $CI_COMMIT_REF_NAME)
+
+# Сборка проекта
+build:
+  stage: build
+  script:
+    # Composer
+    - '[[ -f composer.json ]] && composer install --prefer-dist --no-progress'
+
+# Запуск тестов
+test:
+  stage: test
+  script:
+    # Download stable release of xdebug 2.4.0
+    - apt-get update
+    - apt-get install -y php7.0-xdebug
+    - '[[ -f composer.json ]] && composer install --prefer-dist --no-progress'
+    - ${CI_PROJECT_DIR}/vendor/bin/phpunit -c ${CI_PROJECT_DIR}/tests/phpunit-cov.xml
+  artifacts:
+    paths:
+      - report/
+
+# Удаление ветки для теста
+remove in develop:
+  stage: deploy
+  only:
+    - /^feature\/.*$/
+  except:
+    - feature/master
+    - develop
+    - dev
+  environment:
+    name: develop/$TASK_ID
+    action: stop
+  script:
+    - ssh ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER} rm -rf ${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+  when: manual
+
+# Выкладка ветки для теста
+deploy to develop:
+  stage: deploy
+  only:
+    - /^feature\/.*$/
+  except:
+    - feature/master
+    - develop
+    - dev
+    - master
+  environment:
+    name: develop/$TASK_ID
+    url: http://${DEPLOY_DEV_SERVER}:{$DEPLOY_DEV_PROJECT_URL}${TASK_ID}/index.php?action=gate
+    on_stop: remove in develop
+  script:
+    # Версия сборки
+    - sed -i -- "s/{BUILD_VERSION}/$CI_JOB_ID/g" config/config.php
+    # Права
+    - chmod -R 0777 templates_c tmp
+    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER}:${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+  when: manual
+
+# Выкладка на боевой
+deploy to production:
+  stage: deploy
+  only:
+    - master
+  environment:
+    name: production
+  script:
+    # Права
+    - chmod -R 0777 templates_c tmp
+    # Боевой конфиг
+    - sed -i -- "s/{CONFIG_FOR_REPLACE_JENKINS}/work/g" config/config.php
+    # Версия сборки
+    - sed -i -- "s/{BUILD_VERSION}/$CI_JOB_ID/g" config/config.php
+    # Выкладка
+    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_PROD_USER}@${DEPLOY_PROD_SERVER}:${DEPLOY_PROD_PROJECT_PATH}master
+  when: manual
