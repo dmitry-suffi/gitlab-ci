@@ -5,6 +5,8 @@
 * [Сборка](build.yml)
 * [Тест с покрытием](tests.yml)
 * [Выкладка](deploy.yml)
+* [Использование шаблонов](templates.yml)
+* [Деплой на несколько серверов](multi_deploy.yml)
 * [Для Yii](Yii.yml)
 * [Развертывание и удаление тестового окружения](create_environment_for_branch.yml)
 

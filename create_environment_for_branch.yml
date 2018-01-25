@@ -5,12 +5,8 @@ variables:
 stages:
   - deploy
 
-before_script:
-  # Определяем задачу по ветке
-  - TASK_ID=$(sed 's/^.*\///g'  <<< $CI_COMMIT_REF_NAME)
-
 # Выкладка ветки для теста
-deploy to develop:
+deploy to staging:
   stage: deploy
   only:
     - /^feature\/.*$/
@@ -20,12 +16,12 @@ deploy to develop:
     - dev
     - master
   environment:
-    name: develop/$TASK_ID
-    url: http://${DEPLOY_DEV_SERVER}:{$DEPLOY_DEV_PROJECT_URL}${TASK_ID}/index.php
-    on_stop: remove in develop
+    name: test/${CI_COMMIT_REF_SLUG}
+    url: ${URL_TEST}${CI_COMMIT_REF_SLUG}/index.php
+    on_stop: remove in test
   script:
     # build script
-    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER}:${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+    # ...
   when: manual
 
 # Удаление ветки для теста
@@ -38,8 +34,9 @@ remove in develop:
     - develop
     - dev
   environment:
-    name: develop/$TASK_ID
+    name: develop/${CI_COMMIT_REF_SLUG}
     action: stop
   script:
-    - ssh ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER} rm -rf ${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+    # delete script
+    # ...
   when: manual

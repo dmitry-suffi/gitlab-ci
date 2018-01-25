@@ -1,0 +1,3 @@
+# $CLUSTER - список серверов, PROJECT_PATH - путь
+script:
+  for server in $CLUSTER; do if [ ${#PROJECT_PATH} -ge 10 ]; then ssh ${server} mkdir -p "${PROJECT_PATH}"; rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${server}:${PROJECT_PATH}; fi; done

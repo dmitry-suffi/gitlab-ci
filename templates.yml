@@ -1,0 +1,32 @@
+# Шаблон выкладки
+.deploy_template: &deploy_definition |
+  - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_SERVER}:${PROJECT_PATH}master
+
+deploy to production:
+  stage: deploy
+  only:
+    - master
+  environment:
+    name: production
+  variables:
+    PROJECT_PATH: $PROJECT_PATH_PROD
+    DEPLOY_SERVER: $DEPLOY_SERVER_PROD
+  script:
+    # Выкладка
+    - *deploy_definition
+  when: manual
+
+deploy to staging:
+  stage: deploy
+  only:
+    - develop
+    - /^feature\/.*$/
+  environment:
+    name: production
+  variables:
+    PROJECT_PATH: $PROJECT_PATH_DEV
+    DEPLOY_SERVER: $DEPLOY_SERVER_DEV
+  script:
+    # Выкладка
+    - *deploy_definition
+  when: manual

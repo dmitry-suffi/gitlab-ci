@@ -1,5 +1,5 @@
 cache:
-  key: vendor
+  key: "vendor-$CI_COMMIT_REF_NAME-$CI_COMMIT_SHA"
   paths:
     - vendor
 

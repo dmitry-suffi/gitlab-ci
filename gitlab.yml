@@ -5,7 +5,7 @@ variables:
   TASK_ID: ''
 
 cache:
-  key: vendor
+  key: "vendor-$CI_COMMIT_REF_NAME-$CI_COMMIT_SHA"
   paths:
     - vendor
 
@@ -42,42 +42,60 @@ test:
     paths:
       - report/
 
+# Шаблон выкладки
+.deploy_template: &deploy_definition |
+  echo "$CLUSTER"
+  echo "$PROJECT_PATH"
+  for server in $CLUSTER; do if [ ${#PROJECT_PATH} -ge 10 ]; then ssh ${server} mkdir -p "${PROJECT_PATH}"; rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${server}:${PROJECT_PATH}; fi; done
+  # чистка кеша
+  for server in $CLUSTER; do if [ ${#PROJECT_PATH} -ge 10 ]; then ssh ${server} "php ${PROJECT_PATH}simple.php System/Cache/clear"; break; fi; done
+
+# Шаблон удаления
+.remove_template: &remove_definition |
+  for server in $CLUSTER; do if [ ${#server} -ge 10 ]; then ssh ${server} rm -rf ${PROJECT_PATH}; fi; done
+
 # Удаление ветки для теста
-remove in develop:
+remove in test:
   stage: deploy
   only:
     - /^feature\/.*$/
+    - master
   except:
-    - feature/master
     - develop
     - dev
   environment:
-    name: develop/$TASK_ID
+    name: test/${CI_COMMIT_REF_SLUG}
     action: stop
+  variables:
+    CLUSTER: $CLUSTER_TEST
+    PROJECT_PATH: ${PROJECT_PATH_TEST}${CI_COMMIT_REF_SLUG}
   script:
-    - ssh ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER} rm -rf ${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+    - *remove_definition
   when: manual
 
 # Выкладка ветки для теста
-deploy to develop:
+deploy to test:
   stage: deploy
   only:
     - /^feature\/.*$/
+    - master
   except:
-    - feature/master
     - develop
     - dev
-    - master
   environment:
-    name: develop/$TASK_ID
-    url: http://${DEPLOY_DEV_SERVER}:{$DEPLOY_DEV_PROJECT_URL}${TASK_ID}/index.php?action=gate
-    on_stop: remove in develop
+    name: test/${CI_COMMIT_REF_SLUG}
+    url: ${URL_TEST}${CI_COMMIT_REF_SLUG}/index.php?route=Call/Call/products
+    on_stop: remove in test
+  variables:
+    CLUSTER: $CLUSTER_TEST
+    PROJECT_PATH: ${PROJECT_PATH_TEST}${CI_COMMIT_REF_SLUG}/
   script:
     # Версия сборки
     - sed -i -- "s/{BUILD_VERSION}/$CI_JOB_ID/g" config/config.php
     # Права
-    - chmod -R 0777 templates_c tmp
-    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_DEV_USER}@${DEPLOY_DEV_SERVER}:${DEPLOY_DEV_PROJECT_PATH}${TASK_ID}
+    - chmod -R 0777 templates_c
+    # Выкладка
+    - *deploy_definition
   when: manual
 
 # Выкладка на боевой
@@ -87,13 +105,16 @@ deploy to production:
     - master
   environment:
     name: production
+  variables:
+    CLUSTER: $CLUSTER_PROD
+    PROJECT_PATH: $PROJECT_PATH_PROD
   script:
     # Права
-    - chmod -R 0777 templates_c tmp
+    - chmod -R 0777 templates_c
     # Боевой конфиг
     - sed -i -- "s/{CONFIG_FOR_REPLACE_JENKINS}/work/g" config/config.php
     # Версия сборки
     - sed -i -- "s/{BUILD_VERSION}/$CI_JOB_ID/g" config/config.php
     # Выкладка
-    - rsync -zrpth --stats --delete-after --exclude=.git $(pwd)/ ${DEPLOY_PROD_USER}@${DEPLOY_PROD_SERVER}:${DEPLOY_PROD_PROJECT_PATH}master
+    - *deploy_definition
   when: manual
