@@ -13,6 +13,7 @@ stages:
   - build
   - test
   - deploy
+  - cs
 
 before_script:
   # Настройка ключей деплоя одинаково для всех проектов
@@ -41,6 +42,13 @@ test:
   artifacts:
     paths:
       - report/
+
+# Code Sniffer
+cs:
+  stage: cs
+  script:
+  - composer require "squizlabs/php_codesniffer=*"
+  - 'vendor/bin/phpcs --standard=PSR1,PSR2 --ignore=tests/autoload.php src t
 
 # Шаблон выкладки
 .deploy_template: &deploy_definition |

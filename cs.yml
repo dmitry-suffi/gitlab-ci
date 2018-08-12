@@ -1,0 +1,6 @@
+# Code Sniffer
+cs:
+  stage: cs
+  script:
+  - composer require "squizlabs/php_codesniffer=*"
+  - 'vendor/bin/phpcs --standard=PSR1,PSR2 --ignore=tests/autoload.php src tests'
